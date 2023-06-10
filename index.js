@@ -128,6 +128,22 @@ async function run() {
       res.send(result);
     });
 
+    app.patch("/allClasses/status/:id", async (req, res) => {
+      const id = req.params.id;
+      const newStatus = req.body.status;
+      console.log(newStatus, id);
+      const filter = { _id: new ObjectId(id) };
+      // console.log(newRole);
+      const updateDoc = {
+        $set: {
+          status: newStatus,
+        },
+      };
+
+      const result = await classesCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
