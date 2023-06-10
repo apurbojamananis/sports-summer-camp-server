@@ -10,7 +10,7 @@ app.use(express.json());
 //Mongodb
 const uri = `mongodb+srv://${process.env.SECRET_USERNAME}:${process.env.SECRET_KEY}@cluster0.orqgdcn.mongodb.net/?retryWrites=true&w=majority`;
 
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -46,6 +46,21 @@ async function run() {
 
       const result = await usersCollection.insertOne(user);
       res.send(result);
+    });
+
+    app.patch("/users/admin/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+
+      const updateDoc = {
+        $set: {
+          role: "admin",
+        },
+      };
+
+      const result = await usersCollection.updateOne(filter, updateOne);
+
+      res.send(resutl);
     });
 
     // Send a ping to confirm a successful connection
