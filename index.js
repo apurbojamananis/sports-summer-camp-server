@@ -53,6 +53,7 @@ async function run() {
     await client.connect();
 
     const usersCollection = client.db("summerCamp").collection("users");
+    const classesCollection = client.db("summerCamp").collection("allClasses");
 
     // jwT
 
@@ -112,6 +113,13 @@ async function run() {
       };
 
       const result = await usersCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+
+    // allClasses
+    app.post("/allClasses", async (req, res) => {
+      const classes = req.body;
+      const result = await classesCollection.insertOne(classes);
       res.send(result);
     });
 
