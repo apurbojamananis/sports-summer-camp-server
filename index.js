@@ -144,6 +144,27 @@ async function run() {
       res.send(result);
     });
 
+    app.patch("/allClasses/feedback/:id", async (req, res) => {
+      const id = req.params.id;
+      const feedback = req.body.feedback;
+      console.log(feedback, id);
+      const filter = { _id: new ObjectId(id) };
+      // console.log(newRole);
+      const options = { upsert: true };
+      const updateDoc = {
+        $set: {
+          feedback: feedback,
+        },
+      };
+
+      const result = await classesCollection.updateOne(
+        filter,
+        updateDoc,
+        options
+      );
+      res.send(result);
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
