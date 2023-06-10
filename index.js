@@ -117,6 +117,11 @@ async function run() {
     });
 
     // allClasses
+    app.get("/allClasses", async (req, res) => {
+      const result = await classesCollection.find().toArray();
+      res.send(result);
+    });
+
     app.post("/allClasses", async (req, res) => {
       const classes = req.body;
       const result = await classesCollection.insertOne(classes);
