@@ -249,6 +249,22 @@ async function run() {
       });
     });
 
+    // my Enrolled Classes
+
+    app.get("/payment", async (req, res) => {
+      const email = req.query.email;
+
+      const query = { email: email };
+      const result = await paymentCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    app.get("/payment/ascending", async (req, res) => {
+      const query = { date: 1 };
+      const result = await paymentCollection.find().sort(query).toArray();
+      res.send(result);
+    });
+
     // payment related api
     app.post("/payments", async (req, res) => {
       const payment = req.body;
