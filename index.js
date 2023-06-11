@@ -101,6 +101,16 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/users/instructors", async (req, res) => {
+      // if (req.decoded.email !== email) {
+      //   res.send({ admin: false });
+      // }
+      const query = { role: "Instructor" };
+      const result = await usersCollection.find(query).toArray();
+      // const result = { admin: user?.role === "Admin" };
+      res.send(result);
+    });
+
     app.patch("/users/admin/:id", async (req, res) => {
       const id = req.params.id;
       const newRole = req.body.role;
