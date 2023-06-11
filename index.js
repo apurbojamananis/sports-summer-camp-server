@@ -54,6 +54,9 @@ async function run() {
 
     const usersCollection = client.db("summerCamp").collection("users");
     const classesCollection = client.db("summerCamp").collection("allClasses");
+    const selectedClassCollection = client
+      .db("summerCamp")
+      .collection("selectedClasses");
 
     // jwT
 
@@ -172,6 +175,29 @@ async function run() {
         updateDoc,
         options
       );
+      res.send(result);
+    });
+
+    app.patch("/allClasses/availableSeats/:id", async (req, res) => {
+      const id = req.params.id;
+      const availableSeats = req.body;
+      console.log(availableSeats);
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          availableSeats: availableSeats,
+        },
+      };
+
+      const result = await classesCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+
+    // Selected Classes
+
+    app.post("/selectedClasses", async (req, res) => {
+      const classInfo = req.body;
+      const result = await selectedClassCollection.insertOne(classInfo);
       res.send(result);
     });
 
