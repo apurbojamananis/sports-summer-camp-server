@@ -3,6 +3,7 @@ const app = express();
 const cors = require("cors");
 var jwt = require("jsonwebtoken");
 require("dotenv").config();
+const stripe = require("stripe")(process.env.PAYMENT_SECRET_KEY);
 const port = process.env.PORT || 5000;
 
 app.use(cors());
@@ -57,6 +58,7 @@ async function run() {
     const selectedClassCollection = client
       .db("summerCamp")
       .collection("selectedClasses");
+    const paymentCollection = client.db("summerCamp").collection("payments");
 
     // jwT
 
@@ -129,9 +131,16 @@ async function run() {
       res.send(result);
     });
 
-    // allClasses
+    // allClasses added by instructor
     app.get("/allClasses", async (req, res) => {
       const result = await classesCollection.find().toArray();
+      res.send(result);
+    });
+
+    app.get("/allClasses/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const result = await classesCollection.find(query).toArray();
       res.send(result);
     });
 
@@ -180,7 +189,7 @@ async function run() {
 
     app.patch("/allClasses/availableSeats/:id", async (req, res) => {
       const id = req.params.id;
-      const availableSeats = req.body;
+      const availableSeats = req.body.availableSeats;
       console.log(availableSeats);
       const filter = { _id: new ObjectId(id) };
       const updateDoc = {
@@ -193,12 +202,64 @@ async function run() {
       res.send(result);
     });
 
-    // Selected Classes
+    // Selected Classes for Students
+
+    // app.get("/mySelectedClasses/:email", async (req, res) => {
+    //   const email = req.params.email;
+    //   const filter = { email: email };
+    //   const result = await selectedClassCollection.find(filter).toArray();
+    //   res.send(result);
+    // });
+
+    app.get("/mySelectedClasses", async (req, res) => {
+      const email = req.query.email;
+      const query = { email: email };
+      const result = await selectedClassCollection.find(query).toArray();
+      res.send(result);
+    });
 
     app.post("/selectedClasses", async (req, res) => {
       const classInfo = req.body;
       const result = await selectedClassCollection.insertOne(classInfo);
       res.send(result);
+    });
+
+    app.delete("/selectedClasses/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      console.log(id);
+      const result = await selectedClassCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    // create payment intent
+    app.post("/create-payment-intent", async (req, res) => {
+      const { price } = req.body;
+      console.log("Received price:", price);
+      const amount = parseInt(price * 100);
+      console.log("Computed amount:", amount);
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        payment_method_types: ["card"],
+      });
+
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
+    });
+
+    // payment related api
+    app.post("/payments", async (req, res) => {
+      const payment = req.body;
+      const insertResult = await paymentCollection.insertOne(payment);
+
+      const query = {
+        _id: { $in: [new ObjectId(payment.cartItems)] },
+      };
+      const deleteResult = await selectedClassCollection.deleteOne(query);
+
+      res.send({ insertResult, deleteResult });
     });
 
     // Send a ping to confirm a successful connection
