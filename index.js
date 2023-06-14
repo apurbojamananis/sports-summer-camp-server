@@ -2,37 +2,48 @@ const express = require("express");
 const app = express();
 const cors = require("cors");
 var jwt = require("jsonwebtoken");
+const helmet = require("helmet");
 require("dotenv").config();
 const stripe = require("stripe")(process.env.PAYMENT_SECRET_KEY);
 const port = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json());
+// image lod issue
+app.use(helmet());
+app.use(
+  helmet.contentSecurityPolicy({
+    directives: {
+      defaultSrc: ["'self'"],
+      imgSrc: ["'self'", "data:"],
+    },
+  })
+);
 
-const verifyJWT = (req, res, next) => {
-  const authorization = req.headers.authorization;
-  if (!authorization) {
-    return res
-      .status(401)
-      .send({ error: true, message: "Unauthorized access" });
-  }
+// const verifyJWT = (req, res, next) => {
+//   const authorization = req.headers.authorization;
+//   if (!authorization) {
+//     return res
+//       .status(401)
+//       .send({ error: true, message: "Unauthorized access" });
+//   }
 
-  // bearer token
+//   // bearer token
 
-  const token = authorization.split("")[1];
+//   const token = authorization.split("")[1];
 
-  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
-    if (err) {
-      return res
-        .status(401)
-        .send({ error: true, message: "Unauthorized access" });
-    }
+//   jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+//     if (err) {
+//       return res
+//         .status(401)
+//         .send({ error: true, message: "Unauthorized access" });
+//     }
 
-    req.decoded = decoded;
+//     req.decoded = decoded;
 
-    next();
-  });
-};
+//     next();
+//   });
+// };
 
 //Mongodb
 const uri = `mongodb+srv://${process.env.SECRET_USERNAME}:${process.env.SECRET_KEY}@cluster0.orqgdcn.mongodb.net/?retryWrites=true&w=majority`;
@@ -51,7 +62,7 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
 
     const usersCollection = client.db("summerCamp").collection("users");
     const classesCollection = client.db("summerCamp").collection("allClasses");
@@ -60,16 +71,16 @@ async function run() {
       .collection("selectedClasses");
     const paymentCollection = client.db("summerCamp").collection("payments");
 
-    // jwT
+    // // jwT
 
-    app.post("/jwt", (req, res) => {
-      const user = req.body;
-      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
-        expiresIn: "1h",
-      });
+    // app.post("/jwt", (req, res) => {
+    //   const user = req.body;
+    //   const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+    //     expiresIn: "1h",
+    //   });
 
-      res.send({ token });
-    });
+    //   res.send({ token });
+    // });
 
     // user
     app.get("/users", async (req, res) => {
@@ -97,21 +108,22 @@ async function run() {
     app.get("/users/admin/:email", async (req, res) => {
       const email = req.params.email;
 
-      // if (req.decoded.email !== email) {
-      //   res.send({ admin: false });
-      // }
       const query = { email: email };
       const result = await usersCollection.findOne(query);
-      // const result = { admin: user?.role === "Admin" };
+
       res.send(result);
     });
 
     app.get("/users/instructors", async (req, res) => {
-      // if (req.decoded.email !== email) {
-      //   res.send({ admin: false });
-      // }
       const query = { role: "Instructor" };
       const result = await usersCollection.find(query).toArray();
+      // const result = { admin: user?.role === "Admin" };
+      res.send(result);
+    });
+
+    app.get("/users/popularInstructors", async (req, res) => {
+      const query = { role: "Instructor" };
+      const result = await usersCollection.find(query).limit(6).toArray();
       // const result = { admin: user?.role === "Admin" };
       res.send(result);
     });
@@ -137,10 +149,28 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/allApprovedClasses", async (req, res) => {
+      const query = {
+        status: "Approved",
+      };
+      const result = await classesCollection.find(query).toArray();
+      res.send(result);
+    });
+
     app.get("/allClasses/:email", async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
       const result = await classesCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    app.get("/popularClasses", async (req, res) => {
+      const query = { totalEnrolled: { $exists: true } };
+      const result = await classesCollection
+        .find(query)
+        .sort({ totalEnrolled: -1 })
+        .limit(6)
+        .toArray();
       res.send(result);
     });
 
@@ -204,13 +234,6 @@ async function run() {
 
     // Selected Classes for Students
 
-    // app.get("/mySelectedClasses/:email", async (req, res) => {
-    //   const email = req.params.email;
-    //   const filter = { email: email };
-    //   const result = await selectedClassCollection.find(filter).toArray();
-    //   res.send(result);
-    // });
-
     app.get("/mySelectedClasses", async (req, res) => {
       const email = req.query.email;
       const query = { email: email };
@@ -259,9 +282,14 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/payment/ascending", async (req, res) => {
-      const query = { date: 1 };
-      const result = await paymentCollection.find().sort(query).toArray();
+    app.get("/paymentHistory", async (req, res) => {
+      const email = req.query.email;
+      const query = { email: email };
+      const sortQuery = { date: 1 };
+      const result = await paymentCollection
+        .find(query)
+        .sort(sortQuery)
+        .toArray();
       res.send(result);
     });
 
@@ -271,11 +299,54 @@ async function run() {
       const insertResult = await paymentCollection.insertOne(payment);
 
       const query = {
-        _id: { $in: [new ObjectId(payment.cartItems)] },
+        _id: { $in: [new ObjectId(payment.selectedItemsId)] },
       };
       const deleteResult = await selectedClassCollection.deleteOne(query);
 
-      res.send({ insertResult, deleteResult });
+      // Reduce the availableSeats
+      const reduceQuery = {
+        _id: new ObjectId(payment.allClassId),
+      };
+      const classUpdate = {
+        $inc: { availableSeats: -1 },
+      };
+
+      const reduceClass = await classesCollection.updateOne(
+        reduceQuery,
+        classUpdate
+      );
+
+      // totalEnrolled property added
+
+      const classInfo = await classesCollection.findOne(reduceQuery);
+      if (classInfo && classInfo.totalEnrolled !== undefined) {
+        // If totalEnrolled property is available, increment it by 1
+        const totalEnrolledQuery = {
+          _id: new ObjectId(payment.allClassId),
+        };
+        const totalEnrolledUpdate = {
+          $inc: { totalEnrolled: 1 },
+        };
+        await classesCollection.updateOne(
+          totalEnrolledQuery,
+          totalEnrolledUpdate
+        );
+      } else {
+        // If totalEnrolled property is not available, set it to 1
+        const setTotalEnrolledQuery = {
+          _id: new ObjectId(payment.allClassId),
+        };
+        const setTotalEnrolledUpdate = {
+          $set: { totalEnrolled: 1 },
+        };
+        await classesCollection.updateOne(
+          setTotalEnrolledQuery,
+          setTotalEnrolledUpdate
+        );
+      }
+      //
+
+      res.send({ insertResult, deleteResult, reduceClass });
     });
 
     // Send a ping to confirm a successful connection
